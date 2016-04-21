@@ -14,6 +14,51 @@ import javax.jms.Topic;
 
 public class helloWorldPC implements ExceptionListener {
 
+	void processProducer() {
+		try {
+			// Create a ConnectionFactory
+			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
+					"tcp://localhost:61616");
+
+			// Create a Connection
+			Connection connection = connectionFactory.createConnection();
+			connection.start();
+
+			// Create a Session
+			Session session = connection.createSession(false,Session.AUTO_ACKNOWLEDGE);
+
+			// Create the destination (Topic or Queue)
+			Destination destination = session.createQueue("MyQUEUE");
+			//Destination destination = session.createTopic("MyTOPIC");
+
+			// Create a MessageProducer from the Session to the Topic or Queue
+			MessageProducer producer = session.createProducer(destination);
+
+
+			int i = 0;
+
+			while (i < 20) {
+
+				// Create a messages
+				String text = "Hello world!" + i;
+				TextMessage message = session.createTextMessage(text);
+
+				// Tell the producer to send the message
+				System.out.println("Sent message: " + text);
+				producer.send(message);
+				i++;
+			}
+
+			// Clean up
+			session.close();
+			connection.close();
+		} catch (Exception e) {
+			System.out.println("Caught: " + e);
+			e.printStackTrace();
+		}
+
+	}
+
 	void processConsumer() {
 		String clientID = "edwin";
 		try {
@@ -38,7 +83,7 @@ public class helloWorldPC implements ExceptionListener {
 			// Create a MessageConsumer from the Session to the Topic or Queue
 			MessageConsumer consumer = session.createConsumer(destination);
 			//MessageConsumer consumer = session.createDurableSubscriber((Topic) destination, "edwin");
-
+			
 			MessageListener listener = new MessageListener() {
 				public void onMessage(Message msg) {
 					if (msg instanceof TextMessage) {
@@ -55,7 +100,7 @@ public class helloWorldPC implements ExceptionListener {
 						System.out.println("Received: " + msg);
 					}
 				}
-
+				
 			};
 			consumer.setMessageListener(listener);
 			connection.start();
