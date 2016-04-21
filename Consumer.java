@@ -1,59 +1,108 @@
-/*
-Consumer.java
-
-Simple JMS consumer for Apache ActiveMQ
-
-(c)2013 Kevin Boone
- */
-
-package net.kevinboone.amqtest;
-
-// Note that the only Apache-specific class referred to in the source is
-//  the one that provides the initial broker connection. The rest is
-//  standard JMS
 import org.apache.activemq.ActiveMQConnectionFactory;
-import javax.jms.*;
+import javax.jms.Connection;
+import javax.jms.DeliveryMode;
+import javax.jms.Destination;
+import javax.jms.ExceptionListener;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageListener;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+import javax.jms.Topic;
 
-public class Consumer
-  {
-  public static void main (String[] args)
-      throws Exception
-    {
-    // Create a connection factory referring to the broker host and port
-    ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory
-      ("tcp://localhost:61616");
+public class helloWorldPC implements ExceptionListener {
 
-    // Note that a new thread is created by createConnection, and it
-    //  does not stop even if connection.stop() is called. We must
-    //  shut down the JVM using System.exit() to end the program
-    Connection connection = factory.createConnection();
+	void processConsumer() {
+		String clientID = "edwin";
+		try {
 
-    // Start the connection
-    connection.start();
+			// Create a ConnectionFactory
+			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
+					"tcp://localhost:61616");
 
-    // Create a non-transactional session with automatic acknowledgement
-    Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+			// Create a Connection
+			Connection connection = connectionFactory.createConnection();
+			//connection.start();
 
-    // Create a reference to the queue test_queue in this session. Note
-    //  that ActiveMQ has auto-creation enabled by default, so this JMS
-    //  destination will be created on the broker automatically
-    Queue queue = session.createQueue("test_queue");
+			connection.setExceptionListener(this);
 
+			// Create a Session
+			Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-    MessageConsumer consumer = session.createConsumer(queue);
+			// Create the destination (Topic or Queue)
+			Destination destination = session.createQueue("MyQUEUE");
+			//Destination destination = session.createTopic("MyTOPIC");
 
-    int messages = 0;
-    final int MESSAGES_TO_CONSUME=10;
-    do
-     {
-     TextMessage message = (TextMessage)consumer.receive();
-     messages++;
-     System.out.println ("Message #" + messages + ": " + message.getText());
-     } while (messages < MESSAGES_TO_CONSUME);
+			// Create a MessageConsumer from the Session to the Topic or Queue
+			MessageConsumer consumer = session.createConsumer(destination);
+			//MessageConsumer consumer = session.createDurableSubscriber((Topic) destination, "edwin");
 
-    // Stop the connection — good practice but redundant here
-    connection.stop();
+			MessageListener listener = new MessageListener() {
+				public void onMessage(Message msg) {
+					if (msg instanceof TextMessage) {
+						TextMessage textMessage = (TextMessage) msg;
+						String text = null;
+						try {
+							text = textMessage.getText();
+						} catch (JMSException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						System.out.println("Received: " + text);
+					} else {
+						System.out.println("Received: " + msg);
+					}
+				}
 
-    System.exit(0);
-    }
-  }
+			};
+			consumer.setMessageListener(listener);
+			connection.start();
+
+			// Wait for a message
+			/*Message message = consumer.receive(1000);
+
+			while (message != null) {
+				Thread.sleep(5000);
+
+				if (message instanceof TextMessage) {
+					TextMessage textMessage = (TextMessage) message;
+					String text = textMessage.getText();
+					System.out.println("Received: " + text);
+				} else {
+					System.out.println("Received: " + message);
+				}
+				message = consumer.receiveNoWait();
+			}
+
+			consumer.close();
+			session.close();
+			connection.close(); */
+		} catch (Exception e) {
+			System.out.println("Caught: " + e);
+			e.printStackTrace();
+		}
+	}
+
+	public synchronized void onException(JMSException ex) {
+		System.out.println("JMS Exception occured.  Shutting down client.");
+	}
+
+	public static void main(String[] args) throws Exception {
+		helloWorldPC hw = new helloWorldPC();
+		if (args.length == 1) {
+			if (args[0].equals("P")) {
+				System.out.println("Running Producer...");
+				hw.processProducer();
+			} else if (args[0].equals("C")) {
+				System.out.println("Running Consumer...");
+				hw.processConsumer();
+			} else {
+				System.out.println("Producer or Consumer must be specified");
+
+			}
+		}
+	}
+
+}
